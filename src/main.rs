@@ -3,6 +3,7 @@ use docker_compose::*;
 
 use std::fs::File;
 use std::io::prelude::*;
+use std::net::Ipv4Addr;
 
 
 
@@ -24,59 +25,111 @@ EXPOSE 22
 }
 
 
-fn main() {
-    let ipam_config = IpamConfig {
-        subnet: "10.33.0.0/16".to_string(),
-        gateway: Some("10.33.0.254".to_string()),
-    };
-    let ipam = Ipam {
-        driver: Some("default".to_string()),
-        config: vec![ipam_config],
-    };
-    let network_consul = Network {
+
+fn make_compose_file(
+    cidr: &str, 
+    hostname: &str, 
+    cpus_limits: &str, 
+    memory_limits: &str, 
+    cpus_reservations: &str,
+    memory_reservations: &str,
+    runtime: Option<String>,
+    image: &str,
+    dockerfile: Option<String>,
+    network_name: &str,
+    aliases: Vec<String>
+) -> String {
+
+
+    let mut ip_counter = 1;  // starting with first usable IP address
+
+    let mut hostname_iter = format!("{}_{}",hostname, ip_counter);
+
+    
+
+
+
+
+    let ip_parts: Vec<u8> = cidr
+        .split('/')
+        .next()
+        .unwrap()
+        .split('.')
+        .map(|s| s.parse::<u8>().unwrap())
+        .collect();
+
+
+
+    let services = vec![
+        Service {
+            name: hostname_iter.clone(),
+            hostname: hostname_iter.clone(),
+            runtime: runtime,
+            image: image.to_string(),
+            build: Build {
+                context: ".".to_string(),
+                dockerfile: dockerfile,
+            },
+            deploy: Deploy {
+                resources: Resources {
+                    limits: ResourceLimits {
+                        cpus: cpus_limits.to_string(),
+                        memory: memory_limits.to_string(),
+                    },
+                    reservations: ResourceReservations {
+                        cpus: cpus_reservations.to_string(),
+                        memory: memory_reservations.to_string(),
+                    },
+                },
+            },
+            networks: vec![NetworkConnections {
+                name: network_name.to_string(),
+                ipv4_address: Ipv4Addr::new(ip_parts[0], ip_parts[1], ip_parts[2], ip_counter).to_string(),
+                aliases: aliases,
+                }],
+        },
+    ];
+    // increment the IP counter for the next service
+    ip_counter += 1;
+
+    let networks = vec![Network {
         name: "consul".to_string(),
         driver: Some("bridge".to_string()),
-        ipam: Some(ipam),
-    };
-    let network_conn = NetworkConnections {
-        name: "consul".to_string(),
-        ipv4_address: "10.33.1.1".to_string(),
-        aliases: vec!["dc1_server_1".to_string()],
-    };
-    let limits = ResourceLimits {
-        cpus: "0.5".to_string(),
-        memory: "256M".to_string(),
-    };
-    let reservations = ResourceReservations {
-        cpus: "0.1".to_string(),
-        memory: "50M".to_string(),
-    };
-    let resources = Resources {
-        limits: limits,
-        reservations: reservations,
-    };
-    let deploy = Deploy { resources: resources };
-    let build = Build {
-        context: ".".to_string(),
-        dockerfile: "./ubuntu-ssh.dockerfile".to_string(),
-    };
-    let service = Service {
-        name: "dc1_server_1".to_string(),
-        hostname: "dc1_server_1".to_string(),
-        runtime: "sysbox-runc".to_string(),
-        image: "ubuntu-ssh".to_string(),
-        build: build,
-        deploy: deploy,
-        networks: vec![network_conn],
-    };
+        ipam: Some(Ipam {
+            driver: Some("default".to_string()),
+            config: vec![IpamConfig {
+                subnet: cidr.to_string(),
+                gateway: Some(Ipv4Addr::new(ip_parts[0], ip_parts[1], ip_parts[2], ip_counter).to_string()),
+            }],
+        }),
+    }];
+
     let compose_file = ComposeFile {
-        version: "'3.8'".to_string(),
-        services: vec![service],
-        networks: vec![network_consul],
+        version: "'3'".to_string(),
+        services,
+        networks,
     };
 
-    let yaml = compose_file.to_string();
-    let mut file = File::create("docker-compose.yml").unwrap();
-    file.write_all(yaml.as_bytes()).unwrap();
+    compose_file.to_string()
 }
 
+
+
+fn main() {
+    let hosts_amount = 1;
+    let cidr = "10.0.0.0/24";
+    let hostname = "host";
+    let cpus_limits = "0.5";
+    let memory_limits = "256M";
+    let cpus_reservations = "0.1";
+    let memory_reservations = "50M";
+    let runtime = Some("sysbox-runc".to_string());
+    let image = "ubuntu-ssh";
+    let dockerfile = Some("./ubuntu-ssh.dockerfile".to_string());
+    let network_name = "consul";
+    let aliases = vec![];
+    let yaml = make_compose_file(cidr, hostname, cpus_limits, memory_limits, cpus_reservations, memory_reservations, runtime, image, dockerfile, network_name, aliases);
+    let mut file = std::fs::File::create("docker-compose.yml").unwrap();
+    file.write_all(yaml.as_bytes()).unwrap();
+    println!("docker-compose file created!");
+}

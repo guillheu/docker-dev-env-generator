@@ -25,7 +25,7 @@ impl ToString for ComposeFile {
 pub struct Service {
     pub name: String,
     pub hostname: String,
-    pub runtime: String,
+    pub runtime: Option<String>,
     pub image: String,
     pub build: Build,
     pub deploy: Deploy,
@@ -35,6 +35,10 @@ pub struct Service {
 impl ToString for Service {
     fn to_string(&self) -> String {
         let build_str = self.build.to_string();
+        let runtime_str = match &self.runtime {
+            Some(r) => format!("    runtime: {}", r),
+            None => "".to_string(),
+        };
         let deploy_str = self.deploy.to_string();
         let networks_str = self
             .networks
@@ -44,20 +48,25 @@ impl ToString for Service {
             .join("\n");
 
         format!(
-            "  {}:\n    hostname: {}\n    runtime: {}\n    image: {}\n{}\n{}\n{}\n",
-            self.name, self.hostname, self.runtime, self.image, build_str, deploy_str, networks_str
+            "  {}:\n    hostname: {}\n{}\n    image: {}\n{}\n{}\n{}\n",
+            self.name, self.hostname, runtime_str, self.image, build_str, deploy_str, networks_str
         )
     }
 }
 
 pub struct Build {
     pub context: String,
-    pub dockerfile: String,
+    pub dockerfile: Option<String>,
 }
 
 impl ToString for Build {
     fn to_string(&self) -> String {
-        format!("    build:\n      context: {}\n      dockerfile: {}", self.context, self.dockerfile)
+
+        let dockerfile_str = match &self.dockerfile {
+            Some(d) => format!("      dockerfile: {}", d),
+            None => "".to_string(),
+        };
+        format!("    build:\n      context: {}\n{}", self.context, dockerfile_str)
     }
 }
 

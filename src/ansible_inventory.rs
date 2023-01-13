@@ -26,7 +26,7 @@ pub fn make_inventory_file(hosts_count: u8, cidr: &str, base_hostname: &str) {
     for (group, hosts) in &groups {
         inventory.push_str(&format!("[{}]\n", group));
         for host in hosts.iter() {
-            inventory.push_str(&format!("{} ansible_host={}\n", host.0, host.1));
+            inventory.push_str(&format!("{} ansible_host={} ansible_user=root\n", host.0, host.1));
         }
         inventory.push_str("\n");
     }

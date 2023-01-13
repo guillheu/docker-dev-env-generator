@@ -106,7 +106,7 @@ pub struct ResourceLimits {
 
 impl ToString for ResourceLimits {
     fn to_string(&self) -> String {
-        format!("        limits:\n          cpus: {}\n          memory: {}", self.cpus, self.memory)
+        format!("        limits:\n          cpus: \"{}\"\n          memory: {}", self.cpus, self.memory)
     }
 }
 
@@ -118,7 +118,7 @@ pub struct ResourceReservations {
 impl ToString for ResourceReservations {
     fn to_string(&self) -> String {
         format!(
-            "        reservations:\n          cpus: {}\n          memory: {}",
+            "        reservations:\n          cpus: \"{}\"\n          memory: {}",
             self.cpus, self.memory
         )
     }

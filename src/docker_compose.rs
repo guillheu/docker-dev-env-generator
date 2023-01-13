@@ -1,3 +1,6 @@
+
+use std::net::Ipv4Addr;
+
 pub struct ComposeFile {
     pub version: String,
     pub services: Vec<Service>,
@@ -195,4 +198,84 @@ impl ToString for IpamConfig {
         };
         format!("        - subnet: {}\n{}", self.subnet, gateway_str)
     }
+}
+
+
+
+pub fn make_compose_file(
+    hosts_count: u8,
+    cidr: &str, 
+    hostname: &str, 
+    cpus_limits: &str, 
+    memory_limits: &str, 
+    cpus_reservations: &str,
+    memory_reservations: &str,
+    runtime: Option<String>,
+    image: &str,
+    dockerfile: Option<String>,
+    network_name: &str,
+) -> String {
+    let ip_parts: Vec<u8> = cidr
+        .split('/')
+        .next()
+        .unwrap()
+        .split('.')
+        .map(|s| s.parse::<u8>().unwrap())
+        .collect();
+
+    let mut services = Vec::<Service>::new();
+
+    for hosts_counter in 1..hosts_count+1 {
+
+        let hostname_iter = format!("{}_{}",hostname, hosts_counter);
+        services.push(
+            Service {
+                name: hostname_iter.clone(),
+                hostname: hostname_iter.clone(),
+                runtime: runtime.clone(),
+                image: image.to_string(),
+                build: Build {
+                    context: ".".to_string(),
+                    dockerfile: dockerfile.clone(),
+                },
+                deploy: Deploy {
+                    resources: Resources {
+                        limits: ResourceLimits {
+                            cpus: cpus_limits.to_string(),
+                            memory: memory_limits.to_string(),
+                        },
+                        reservations: ResourceReservations {
+                            cpus: cpus_reservations.to_string(),
+                            memory: memory_reservations.to_string(),
+                        },
+                    },
+                },
+                networks: vec![NetworkConnections {
+                    name: network_name.to_string(),
+                    ipv4_address: Ipv4Addr::new(ip_parts[0], ip_parts[1], ip_parts[2], ip_parts[3] + hosts_counter).to_string(),
+                    aliases: vec![],
+                    }],
+            }
+        )
+    }
+
+    let networks = vec![Network {
+        name: "consul".to_string(),
+        driver: Some("bridge".to_string()),
+        ipam: Some(Ipam {
+            driver: Some("default".to_string()),
+            config: vec![IpamConfig {
+                subnet: cidr.to_string(),
+                gateway: Some(Ipv4Addr::new(ip_parts[0], ip_parts[1], ip_parts[2], ip_parts[3] + hosts_count +1).to_string()),
+            }],
+        }),
+    }];
+
+    let compose_file = ComposeFile {
+        version: "'3'".to_string(),
+        services,
+        networks,
+    };
+
+    compose_file.to_string()
 }

@@ -260,7 +260,7 @@ pub fn make_compose_file(
     }
 
     let networks = vec![Network {
-        name: "consul".to_string(),
+        name: network_name.to_string(),
         driver: Some("bridge".to_string()),
         ipam: Some(Ipam {
             driver: Some("default".to_string()),

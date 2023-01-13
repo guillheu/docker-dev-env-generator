@@ -31,6 +31,6 @@ pub fn make_inventory_file(hosts_count: u8, cidr: &str, base_hostname: &str) {
         inventory.push_str("\n");
     }
 
-    let mut file = File::create("inventory").unwrap();
+    let mut file = File::create("inventory.ini").unwrap();
     file.write_all(inventory.as_bytes()).unwrap();
 }
